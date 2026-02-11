@@ -60,71 +60,132 @@ void init_fleet(Ship fleet[]);
 void print_single_board(char board[ROWS][COLS], int show_ships);
 void print_dual_boards(char bot_board[ROWS][COLS], char player_board[ROWS][COLS]);
 int place_ship_random(char board[ROWS][COLS], Ship *ship);
-void place_ship_manual(char board[ROWS][COLS], Ship *ship);
+void place_ship_manual(char board[ROWS][COLS], Ship *ship, int playerNum);
 int check_fleet_sunk(Ship fleet[]);
-void player_turn(char enemy_board[ROWS][COLS], Ship enemy_fleet[]);
+void player_turn(char enemy_board[ROWS][COLS], Ship enemy_fleet[], int playerNum);
 void bot_turn(char player_board[ROWS][COLS], Ship player_fleet[]);
 void add_target(int r, int c, char board[ROWS][COLS]);
 void wait_for_enter();
+void switch_player_screen(int nextPlayer);
 
 int main() {
     srand(time(NULL));
     
-    char playerBoard[ROWS][COLS];
-    char botBoard[ROWS][COLS];
+    char p1Board[ROWS][COLS];
+    char p2Board[ROWS][COLS];
     
-    Ship playerFleet[5];
-    Ship botFleet[5];
+    Ship p1Fleet[5];
+    Ship p2Fleet[5];
 
-    init_board(playerBoard);
-    init_board(botBoard);
-    init_fleet(playerFleet);
-    init_fleet(botFleet);
+    init_board(p1Board);
+    init_board(p2Board);
+    init_fleet(p1Fleet);
+    init_fleet(p2Fleet);
     
-    printf(UI_COLOR "\n=== BATTLESHIP PRO COMMANDER ===\n" RESET);
+    printf(UI_COLOR "\n=== BATTLESHIP ===\n" RESET);
+    printf("1. Single Player (vs Bot)\n");
+    printf("2. Multiplayer (1v1 Local)\n");
+    printf("Select Mode: ");
 
-    printf("Enemy is positioning their fleet...\n");
-    for (int i = 0; i < 5; i++) {
-        place_ship_random(botBoard, &botFleet[i]);
-    }
-    SLEEP_MS(1000);
-    printf("Enemy fleet is ready!\n");
+    int mode;
+    scanf("%d", &mode);
+    while(getchar() != '\n');
 
-    printf("\n" UI_COLOR "--- DEPLOY YOUR FLEET ---" RESET "\n");
-    wait_for_enter();
-    for (int i = 0; i < 5; i++) {
-        place_ship_manual(playerBoard, &playerFleet[i]);
+    if (mode == 1) {
+        printf("Enemy is positioning their fleet...\n");
+        for (int i = 0; i < 5; i++) {
+            place_ship_random(p2Board, &p2Fleet[i]);
+        }
+        SLEEP_MS(1000);
+        printf("Enemy fleet is ready!\n");
+
+        printf("\n" UI_COLOR "--- DEPLOY YOUR FLEET ---" RESET "\n");
+        wait_for_enter();
+        for (int i = 0; i < 5; i++) {
+            place_ship_manual(p1Board, &p1Fleet[i],1);
+        }
+    } else {
+        switch_player_screen(1);
+        printf(UI_COLOR "\n--- PLAYER 1 DEPLOYMENT ---" RESET "\n");
+        for (int i = 0; i < 5; i++) place_ship_manual(p1Board, &p1Fleet[i], 1);
+        
+        switch_player_screen(2);
+        printf(UI_COLOR "\n--- PLAYER 2 DEPLOYMENT ---" RESET "\n");
+        for (int i = 0; i < 5; i++) place_ship_manual(p2Board, &p2Fleet[i], 2);
     }
+
+    
 
     int game_running = 1;
+    int current_player = 1;
     while(game_running) {
-        CLEAR_SCREEN;
-        print_dual_boards(botBoard, playerBoard);
-        
-        player_turn(botBoard, botFleet);
-        if (check_fleet_sunk(botFleet)) {
+        if (mode == 1) {
             CLEAR_SCREEN;
-            print_single_board(botBoard, 1);
-            printf(SHIP_COLOR "\nVICTORY! You sank the entire enemy fleet!\n" RESET);
-            break;
-        }
+            print_dual_boards(p2Board, p1Board);
         
-        printf("Enemy is firing...\n");
-        SLEEP_MS(1000);
-        bot_turn(playerBoard, playerFleet);
-        if (check_fleet_sunk(playerFleet)) {
-            print_single_board(playerBoard, 1);
-            printf(HIT_COLOR "\nDEFEAT! Your fleet has been destroyed.\n" RESET);
-            break;
-        }
+            player_turn(p2Board, p1Fleet,1);
+            if (check_fleet_sunk(p2Fleet)) {
+                CLEAR_SCREEN;
+                print_single_board(p2Board, 1);
+                printf(SHIP_COLOR "\nVICTORY! You sank the entire enemy fleet!\n" RESET);
+                break;
+            }
+        
+            printf("Enemy is firing...\n");
+            SLEEP_MS(1000);
+            bot_turn(p1Board, p2Fleet);
+            if (check_fleet_sunk(p1Fleet)) {
+                print_single_board(p1Board, 1);
+                printf(HIT_COLOR "\nDEFEAT! Your fleet has been destroyed.\n" RESET);
+                break;
+            }
 
-        printf(UI_COLOR "\n[PRESS ENTER FOR NEXT ROUND]" RESET);
-        int c;
-        while ((c = getchar()) != '\n' && c != EOF); 
-        getchar();
+            printf(UI_COLOR "\n[PRESS ENTER FOR NEXT ROUND]" RESET);
+            int c;
+            while ((c = getchar()) != '\n' && c != EOF); 
+            getchar();
+        } else {
+            switch_player_screen(current_player);
+
+            if (current_player == 1) {
+                print_dual_boards(p2Board,p1Board);
+                player_turn(p2Board,p2Fleet,1);
+
+                if (check_fleet_sunk(p2Fleet)) {
+                    CLEAR_SCREEN;
+                    printf(SHIP_COLOR "\nVICTORY! PLAYER 1 WINS!\n" RESET);
+                    break;
+                }
+                current_player = 2;
+            } else {
+                print_dual_boards(p1Board,p2Board);
+                player_turn(p1Board,p1Fleet,1);
+
+                if (check_fleet_sunk(p1Fleet)) {
+                    CLEAR_SCREEN;
+                    printf(SHIP_COLOR "\nVICTORY! PLAYER 2 WINS!\n" RESET);
+                    break;
+                }
+                current_player = 1;
+            }
+            printf(UI_COLOR "\n[PRESS ENTER FOR NEXT ROUND]" RESET);
+            int c;
+            while ((c = getchar()) != '\n' && c != EOF); 
+            getchar();
+        }   
     }
-    
     return 0;
+}
+
+void switch_player_screen(int nextPlayer) {
+    CLEAR_SCREEN;
+    printf("\n\n\n\n");
+    printf(BORDER_COLOR "#############################################\n" RESET);
+    printf(UI_COLOR     "        PASS THE DEVICE TO PLAYER %d         \n" RESET, nextPlayer);
+    printf(BORDER_COLOR "#############################################\n" RESET);
+    printf("\n(No peeking!)\n\n");
+    wait_for_enter();
+    CLEAR_SCREEN;
 }
 
 void wait_for_enter() {
@@ -231,9 +292,11 @@ int place_ship_random(char board[ROWS][COLS], Ship *ship) {
     return 1;
 }
 
-void place_ship_manual(char board[ROWS][COLS], Ship *ship) {
+void place_ship_manual(char board[ROWS][COLS], Ship *ship, int playerNum) {
     int placed = 0;
     while (!placed) {
+        CLEAR_SCREEN;
+        printf(UI_COLOR "PLAYER %d TURN TO PLACE\n" RESET, playerNum);
         print_single_board(board, 1);
         printf(UI_COLOR "\nDeploying: %s (Size: %d)\n" RESET, ship->name, ship->size);
         printf("Enter starting coordinate (e.g., A 1): ");
@@ -286,9 +349,10 @@ void place_ship_manual(char board[ROWS][COLS], Ship *ship) {
     }
 }
 
-void player_turn(char enemy_board[ROWS][COLS], Ship enemy_fleet[]) {
+void player_turn(char enemy_board[ROWS][COLS], Ship enemy_fleet[], int playerNum) {
     int valid_shot = 0;
     while (!valid_shot) {
+        printf(UI_COLOR "\nPLAYER %d COMMANDER: " RESET, playerNum);
         printf("\nFire at coordinates (e.g., A 5): ");
         char c_char; int r_num;
         scanf(" %c %d", &c_char, &r_num);
