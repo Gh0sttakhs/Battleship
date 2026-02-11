@@ -4,6 +4,16 @@
 #include <string.h>
 #include <ctype.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#define SLEEP_MS(x) Sleep(x)
+#define CLEAR_SCREEN system("cls")
+#else
+#include <unistd.h>
+#define SLEEP_MS(x) usleep((x)*1000)
+#define CLEAR_SCREEN system("clear")
+#endif
+
 #define ROWS 10
 #define COLS 10
 
@@ -18,6 +28,22 @@
 #define WATER '~'
 #define HIT   'X'
 #define MISS  'O'
+
+void clear_screen() {
+    #ifdef _WIN32
+        system("cls");
+    #else
+        system("clear");
+    #endif
+}
+
+void sleep_ms(int milliseconds) {
+    #ifdef _WIN32
+        Sleep(milliseconds);
+    #else
+        usleep(milliseconds * 1000);
+    #endif
+}
 
 typedef struct {
     char name[20];
@@ -39,6 +65,7 @@ int check_fleet_sunk(Ship fleet[]);
 void player_turn(char enemy_board[ROWS][COLS], Ship enemy_fleet[]);
 void bot_turn(char player_board[ROWS][COLS], Ship player_fleet[]);
 void add_target(int r, int c, char board[ROWS][COLS]);
+void wait_for_enter();
 
 int main() {
     srand(time(NULL));
@@ -60,34 +87,49 @@ int main() {
     for (int i = 0; i < 5; i++) {
         place_ship_random(botBoard, &botFleet[i]);
     }
+    SLEEP_MS(1000);
     printf("Enemy fleet is ready!\n");
 
     printf("\n" UI_COLOR "--- DEPLOY YOUR FLEET ---" RESET "\n");
+    wait_for_enter();
     for (int i = 0; i < 5; i++) {
         place_ship_manual(playerBoard, &playerFleet[i]);
     }
 
     int game_running = 1;
     while(game_running) {
+        CLEAR_SCREEN;
         print_dual_boards(botBoard, playerBoard);
         
         player_turn(botBoard, botFleet);
         if (check_fleet_sunk(botFleet)) {
+            CLEAR_SCREEN;
             print_single_board(botBoard, 1);
             printf(SHIP_COLOR "\nVICTORY! You sank the entire enemy fleet!\n" RESET);
             break;
         }
         
         printf("Enemy is firing...\n");
+        SLEEP_MS(1000);
         bot_turn(playerBoard, playerFleet);
         if (check_fleet_sunk(playerFleet)) {
             print_single_board(playerBoard, 1);
             printf(HIT_COLOR "\nDEFEAT! Your fleet has been destroyed.\n" RESET);
             break;
         }
+
+        printf(UI_COLOR "\n[PRESS ENTER FOR NEXT ROUND]" RESET);
+        int c;
+        while ((c = getchar()) != '\n' && c != EOF); 
+        getchar();
     }
     
     return 0;
+}
+
+void wait_for_enter() {
+    printf("[Press ENTER to continue...]");
+    getchar();
 }
 
 void init_board(char board[ROWS][COLS]) {
@@ -129,8 +171,8 @@ void print_single_board(char board[ROWS][COLS], int show_ships) {
 
 void print_dual_boards(char bot_board[ROWS][COLS], char player_board[ROWS][COLS]) {
     printf("\n");
-    printf(HIT_COLOR    "         ENEMY WATERS                  " RESET);
-    printf(SHIP_COLOR   "          YOUR FLEET         \n" RESET);
+    printf(HIT_COLOR    "        ENEMY WATERS                  " RESET);
+    printf(SHIP_COLOR   "         YOUR FLEET         \n" RESET);
     
     printf("    A B C D E F G H I J                   A B C D E F G H I J\n");
     
@@ -304,6 +346,7 @@ void bot_turn(char player_board[ROWS][COLS], Ship player_fleet[]) {
     int r, c;
     
     printf("Enemy is thinking...\n");
+    sleep_ms(1500);
 
     int found_target = 0;
     while (stack_top > 0) {
